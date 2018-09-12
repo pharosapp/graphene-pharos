@@ -22,7 +22,7 @@ from graphene.utils.str_converters import to_camel_case, to_const
 from graphql import assert_valid_name
 
 from .compat import ArrayField, HStoreField, JSONField, RangeField
-from .fields import DjangoListField, DjangoConnectionField
+from .fields import DjangoListField, DjangoFilterField
 from .utils import import_single_dispatch
 
 singledispatch = import_single_dispatch()
@@ -177,19 +177,7 @@ def convert_field_to_list_or_connection(field, registry=None):
         if not _type:
             return
 
-        # If there is a connection, we should transform the field
-        # into a DjangoConnectionField
-        if _type._meta.connection:
-            # Use a DjangoFilterConnectionField if there are
-            # defined filter_fields in the DjangoObjectType Meta
-            if _type._meta.filter_fields:
-                from .filter.fields import DjangoFilterConnectionField
-
-                return DjangoFilterConnectionField(_type)
-
-            return DjangoConnectionField(_type)
-
-        return DjangoListField(_type)
+        return DjangoFilterField(_type)
 
     return Dynamic(dynamic_type)
 

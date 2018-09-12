@@ -8,11 +8,11 @@ if not DJANGO_FILTER_INSTALLED:
         ImportWarning,
     )
 else:
-    from .fields import DjangoFilterConnectionField
+    from .fields import DjangoFilterField
     from .filterset import GlobalIDFilter, GlobalIDMultipleChoiceFilter
 
     __all__ = [
-        "DjangoFilterConnectionField",
+        "DjangoFilterField",
         "GlobalIDFilter",
         "GlobalIDMultipleChoiceFilter",
     ]

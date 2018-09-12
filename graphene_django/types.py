@@ -45,6 +45,7 @@ class DjangoObjectType(ObjectType):
     def __init_subclass_with_meta__(
         cls,
         model=None,
+        permission_class=None,
         registry=None,
         skip_registry=False,
         only_fields=(),
@@ -103,6 +104,7 @@ class DjangoObjectType(ObjectType):
         _meta.filter_fields = filter_fields
         _meta.fields = django_fields
         _meta.connection = connection
+        _meta.permission_class = permission_class
 
         super(DjangoObjectType, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
