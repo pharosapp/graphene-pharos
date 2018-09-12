@@ -15,10 +15,7 @@ class GlobalIDFilter(Filter):
 
     def filter(self, qs, value):
         """ Convert the filter value to a primary key before filtering """
-        _id = None
-        if value is not None:
-            _, _id = from_global_id(value)
-        return super(GlobalIDFilter, self).filter(qs, _id)
+        return super(GlobalIDFilter, self).filter(qs, value)
 
 
 class GlobalIDMultipleChoiceFilter(MultipleChoiceFilter):

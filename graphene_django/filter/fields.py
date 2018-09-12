@@ -44,11 +44,15 @@ class FilterBase():
 
     def filter(self, _type, info, kwargs):
         order_by = [to_snake_case(o) for o in kwargs.pop('order_by')]
-        permission = _type._meta.permission_class()
 
         for k in kwargs:
             if k not in self.filtering_args:
                     raise GraphQLError('filter argument not in filter class')
+        
+        for o in order_by:
+            o = o.replace('-', '')
+            if o != DEFAULT_ORDER and o not in self.filtering_args:
+                    raise GraphQLError('order_by argument "%s" not in filter class' % o)
 
         filter_kwargs = {k: v
             for k, v in kwargs.items()
@@ -56,14 +60,13 @@ class FilterBase():
         }
 
         user = info.context.user
+        permission = _type._meta.permission_class()
         qs = permission.viewable(user, info=info)
-        qs = self.filterset_class(data=filter_kwargs, queryset=qs, request=info.context, strict=STRICTNESS.RAISE_VALIDATION_ERROR).qs
-        for o in order_by:
-            o = o.replace('-', '')
-            if o != DEFAULT_ORDER and o not in self.filtering_args:
-                    raise GraphQLError('order_by argument "%s" not in filter class' % o)
-
         qs = qs.order_by(*order_by)
+
+        qs = self.filterset_class(data=filter_kwargs, queryset=qs, request=info.context, strict=STRICTNESS.RAISE_VALIDATION_ERROR).qs
+
+
         return qs
 
 
