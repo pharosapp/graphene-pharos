@@ -20,9 +20,11 @@ from graphene import (
 from graphene.types.json import JSONString
 from graphene.utils.str_converters import to_camel_case, to_const
 from graphql import assert_valid_name
+from .filter import DjangoFilterField
+from .filter.fields import DjangoInnerListField
 
 from .compat import ArrayField, HStoreField, JSONField, RangeField
-from .fields import DjangoListField, DjangoFilterField
+from .fields import DjangoListField, DjangoConnectionField
 from .utils import import_single_dispatch
 
 singledispatch = import_single_dispatch()
@@ -177,7 +179,12 @@ def convert_field_to_list_or_connection(field, registry=None):
         if not _type:
             return
 
-        return DjangoFilterField(_type)
+        # if _type.django_filter_field:
+        #     return _type.django_filter_field
+
+        # return DjangoListField(_type)
+        return DjangoInnerListField(_type)
+        
 
     return Dynamic(dynamic_type)
 

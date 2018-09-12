@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from django.utils.functional import SimpleLazyObject
 from graphene import Field
-from graphene.relay import Connection, Node
+from .nodes import DjangoNode
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 
@@ -46,6 +46,7 @@ class DjangoObjectType(ObjectType):
         cls,
         model=None,
         permission_class=None,
+        filterset_class=None,
         registry=None,
         skip_registry=False,
         only_fields=(),
@@ -58,6 +59,8 @@ class DjangoObjectType(ObjectType):
         _meta=None,
         **options
     ):
+        if not permission_class:
+            raise Exception('No "permission_class" suppied for %s', model.__name__)
         assert is_valid_django_model(model), (
             'You need to pass a valid Django Model in {}.Meta, received "{}".'
         ).format(cls.__name__, model)
@@ -77,33 +80,19 @@ class DjangoObjectType(ObjectType):
             construct_fields(model, registry, only_fields, exclude_fields), _as=Field
         )
 
-        if use_connection is None and interfaces:
-            use_connection = any(
-                (issubclass(interface, Node) for interface in interfaces)
-            )
-
-        if use_connection and not connection:
-            # We create the connection automatically
-            if not connection_class:
-                connection_class = Connection
-
-            connection = connection_class.create_type(
-                "{}Connection".format(cls.__name__), node=cls
-            )
-
-        if connection is not None:
-            assert issubclass(connection, Connection), (
-                "The connection must be a Connection. Received {}"
-            ).format(connection.__name__)
-
         if not _meta:
             _meta = DjangoObjectTypeOptions(cls)
+
+        
 
         _meta.model = model
         _meta.registry = registry
         _meta.filter_fields = filter_fields
         _meta.fields = django_fields
         _meta.connection = connection
+        _meta.filterset_class = filterset_class
+
+        interfaces = (DjangoNode, )
         _meta.permission_class = permission_class
 
         super(DjangoObjectType, cls).__init_subclass_with_meta__(
