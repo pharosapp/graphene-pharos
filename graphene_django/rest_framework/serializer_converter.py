@@ -91,8 +91,12 @@ def convert_list_serializer_to_field(field):
 def convert_serializer_field_to_int(field):
     return graphene.Int
 
+@get_graphene_type_from_serializer_field.register(serializers.PrimaryKeyRelatedField)
+def convert_serializer_field_to_id(field):
+    return graphene.ID
 
 @get_graphene_type_from_serializer_field.register(serializers.BooleanField)
+@get_graphene_type_from_serializer_field.register(serializers.NullBooleanField)
 def convert_serializer_field_to_bool(field):
     return graphene.Boolean
 
