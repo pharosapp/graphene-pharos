@@ -91,8 +91,7 @@ class DjangoFilterField(Field, FilterBase):
             class Meta:
                 name = _type.__name__ + "ListBase"
 
-
-            objects = graphene.List(_type)
+            objects = graphene.NonNull(graphene.List(graphene.NonNull(_type)))
             page_info = graphene.Field(PageInfo)
 
             def resolve_objects(self, resolve_info, **kwargs):
@@ -180,7 +179,7 @@ class DjangoInnerListField(Field, FilterBase):
     def __init__(self, _type, *args, **kwargs):
         kwargs = self.get_filter_args(_type, kwargs)
         self.inner_type = _type
-        super().__init__(graphene.List(_type), *args, **kwargs)
+        super().__init__(graphene.NonNull(graphene.List(graphene.NonNull(_type))), *args, **kwargs)
 
     @property
     def model(self):
