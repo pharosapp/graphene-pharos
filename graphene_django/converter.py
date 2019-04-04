@@ -102,7 +102,7 @@ def convert_field_to_string(field, registry=None):
 
 @convert_django_field.register(models.AutoField)
 def convert_field_to_id(field, registry=None):
-    return ID(description=field.help_text, required=not field.null)
+    return Int(description=field.help_text, required=not field.null)
 
 
 @convert_django_field.register(models.UUIDField)
