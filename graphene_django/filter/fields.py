@@ -6,7 +6,6 @@ from graphql.error import GraphQLError
 import graphene
 from ..fields import DjangoListField
 from ..utils import maybe_queryset
-from django_filters.constants import STRICTNESS
 
 
 DEFAULT_ORDER = 'id'
@@ -64,7 +63,7 @@ class FilterBase():
         qs = permission.viewable(user, info=info)
         qs = qs.order_by(*order_by)
 
-        qs = self.filterset_class(data=filter_kwargs, queryset=qs, request=info.context, strict=STRICTNESS.RAISE_VALIDATION_ERROR).qs
+        qs = self.filterset_class(data=filter_kwargs, queryset=qs, request=info.context).qs
 
 
         return qs
