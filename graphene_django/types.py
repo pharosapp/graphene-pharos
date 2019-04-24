@@ -54,6 +54,7 @@ class DjangoObjectType(ObjectType):
         model=None,
         permission_class=None,
         filterset_class=None,
+        order_fields=None,
         registry=None,
         skip_registry=False,
         only_fields=(),
@@ -98,6 +99,7 @@ class DjangoObjectType(ObjectType):
         _meta.fields = django_fields
         _meta.connection = connection
         _meta.filterset_class = filterset_class
+        _meta.order_fields = order_fields if order_fields else ['id']
 
         interfaces = (DjangoNode, )
         _meta.permission_class = permission_class

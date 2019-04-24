@@ -183,7 +183,7 @@ def convert_field_to_list_or_connection(field, registry=None):
         #     return _type.django_filter_field
 
         # return DjangoListField(_type)
-        return DjangoInnerListField(_type)
+        return DjangoInnerListField(_type, inner_field=field)
         
 
     return Dynamic(dynamic_type)
