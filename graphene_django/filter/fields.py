@@ -2,7 +2,7 @@ import enum
 from functools import partial
 from graphene.types.field import Field
 from graphene_django.filter.utils import get_filtering_args_from_filterset, get_filterset_class
-from graphene.utils.str_converters import to_snake_case
+from graphene.utils.str_converters import to_snake_case, to_camel_case
 from graphql.error import GraphQLError
 import graphene
 from ..fields import DjangoListField
@@ -45,7 +45,7 @@ class FilterBase():
             self.filterset_class, _type)
         kwargs.setdefault('args', {})
 
-        order_args = {k: i for (i, k) in enumerate(set(_type._meta.order_fields + ['id']))}
+        order_args = {to_camel_case(k): i for (i, k) in enumerate(set(_type._meta.order_fields + ['id']))}
 
         if len(order_args.items()) == 0:
             raise Exception(f'No ordering args found on {_type}')
