@@ -155,7 +155,7 @@ class DjangoInnerListField(Field, FilterBase):
     
     def list_resolver(self, resolver, root, info, **kwargs):
         qs, limit = self.filter(self.inner_type, info, kwargs)
-        return qs
+        return maybe_queryset(resolver(root, info, **kwargs)) & qs
 
     def get_resolver(self, parent_resolver):
         return partial(self.list_resolver, parent_resolver)
