@@ -119,7 +119,7 @@ class DjangoFilterField(Field, FilterBase):
                 name = _type.__name__ + "ListBase"
 
             objects = graphene.NonNull(graphene.List(graphene.NonNull(_type)))
-            page_info = graphene.Field(PageInfo)
+            page_info = graphene.NonNull(PageInfo)
 
             def resolve_objects(self, resolve_info, **kwargs):
                 return self.queryset
