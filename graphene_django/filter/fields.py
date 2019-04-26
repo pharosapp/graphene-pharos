@@ -6,6 +6,7 @@ from graphene_django.filter.utils import get_filtering_args_from_filterset, get_
 from graphene.utils.str_converters import to_snake_case, to_camel_case
 from graphql.error import GraphQLError
 from django.db.models.functions import Lower
+from django.db.models import F 
 
 from ..fields import DjangoListField
 from ..utils import maybe_queryset
@@ -35,6 +36,7 @@ class OrderingDirectionEnum(enum.Enum):
 
 class OrderingModifierEnum(enum.Enum):
     CASE_INSENSITIVE = 1
+    NULLS_LAST = 2
 
 
 OrderingDirectionEnumType = graphene.Enum.from_enum(OrderingDirectionEnum)
@@ -75,28 +77,37 @@ class FilterBase():
         kwargs['args'].update(self.filtering_args)
         return kwargs
 
-    def filter(self, _type, info, kwargs):
-        limit = kwargs.pop('limit')
-        offset = kwargs.pop('offset')
-        order_by_enum = kwargs.pop('order_by')
-
+    def get_order_by(self, order_by_args):
+        order_by_enum = []
+        for to_enum in order_by_args:
         # for some reason enums doesn't get converted so do it manually
-        for i, to_enum in enumerate(order_by_enum):
-            order_by_enum[i] = {
+            order_by_enum.append({
                 'field': self.order_by_enum(to_enum['field']),
                 'direction': OrderingDirectionEnum(to_enum['direction']),
                 'modifiers': [OrderingModifierEnum(m) for m in to_enum['modifiers']],
-            }
-
+            })
         order_by = []
         for o in order_by_enum:
-            field = ('-' if o['direction'] == OrderingDirectionEnum.DESC else '') + to_snake_case(o['field'].name)
+            desc = o['direction'] == OrderingDirectionEnum.DESC
+            field = to_snake_case(o['field'].name)
+            order_field = F(field)
+            kwargs = {}
             for modifier in o['modifiers']:
                 if modifier == OrderingModifierEnum.CASE_INSENSITIVE:
-                    field = Lower(field)
+                    order_field = Lower(order_field)
+                elif modifier == OrderingModifierEnum.NULLS_LAST:
+                    kwargs['nulls_last'] = True
                 else:
                     raise Exception(f"Ordering modifier `{modifier}` does not exist")
-            order_by.append(field)
+            order_by.append(
+                order_field.desc(**kwargs) if desc else order_field.asc(**kwargs)
+            )
+        return order_by
+
+    def filter(self, _type, info, kwargs):
+        limit = kwargs.pop('limit')
+        offset = kwargs.pop('offset')
+        order_by_args = kwargs.pop('order_by')
 
         filter_kwargs = {k: v
             for k, v in kwargs.items()
@@ -107,7 +118,10 @@ class FilterBase():
         permission = _type._meta.permission_class()
         qs = permission.viewable(user, info=info)
         qs = self.filterset_class(data=filter_kwargs, queryset=qs, request=info.context).qs
-        qs = qs.order_by(*order_by, DEFAULT_ORDER)
+        qs = qs.order_by(
+            *self.get_order_by(order_by_args),
+            DEFAULT_ORDER,
+        )
 
         qs = qs[offset: offset+limit] if limit else qs[offset:]
 
