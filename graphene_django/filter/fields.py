@@ -36,7 +36,6 @@ class OrderingDirectionEnum(enum.Enum):
 
 class OrderingModifierEnum(enum.Enum):
     CASE_INSENSITIVE = 1
-    NULLS_LAST = 2
 
 
 OrderingDirectionEnumType = graphene.Enum.from_enum(OrderingDirectionEnum)
@@ -91,16 +90,13 @@ class FilterBase():
             desc = o['direction'] == OrderingDirectionEnum.DESC
             field = to_snake_case(o['field'].name)
             order_field = F(field)
-            kwargs = {}
             for modifier in o['modifiers']:
                 if modifier == OrderingModifierEnum.CASE_INSENSITIVE:
                     order_field = Lower(order_field)
-                elif modifier == OrderingModifierEnum.NULLS_LAST:
-                    kwargs['nulls_last'] = True
                 else:
                     raise Exception(f"Ordering modifier `{modifier}` does not exist")
             order_by.append(
-                order_field.desc(**kwargs) if desc else order_field.asc(**kwargs)
+                order_field.desc() if desc else order_field.asc()
             )
         return order_by
 
