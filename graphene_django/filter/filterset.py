@@ -22,7 +22,7 @@ class GlobalIDMultipleChoiceFilter(MultipleChoiceFilter):
     field_class = GlobalIDMultipleChoiceField
 
     def filter(self, qs, value):
-        gids = [from_global_id(v)[1] for v in value]
+        gids = value # [from_global_id(v)[1] for v in value] don't use relay's id conversion
         return super(GlobalIDMultipleChoiceFilter, self).filter(qs, gids)
 
 
