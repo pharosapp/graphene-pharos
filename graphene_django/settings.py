@@ -15,7 +15,7 @@ from __future__ import unicode_literals
 
 from django.conf import settings
 from django.test.signals import setting_changed
-from django.utils import six
+import six
 
 try:
     import importlib  # Available in Python 3.1+
