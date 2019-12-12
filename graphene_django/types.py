@@ -68,7 +68,7 @@ class DjangoObjectType(ObjectType):
         **options
     ):
         if not permission_class:
-            raise Exception('No "permission_class" suppied for %s', model.__name__)
+            raise Exception('No "permission_class" suppied for %s', model)
         assert is_valid_django_model(model), (
             'You need to pass a valid Django Model in {}.Meta, received "{}".'
         ).format(cls.__name__, model)
