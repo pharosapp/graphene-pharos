@@ -1,30 +1,43 @@
+from collections import namedtuple
+
 import pytest
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from py.test import raises
 
 import graphene
+from graphene import NonNull
 from graphene.relay import ConnectionField, Node
-from graphene.types.datetime import DateTime, Date, Time
+from graphene.types.datetime import Date, DateTime, Time
 from graphene.types.json import JSONString
 
-from ..compat import JSONField, ArrayField, HStoreField, RangeField, MissingType
-from ..converter import convert_django_field, convert_django_field_with_choices
+from ..compat import ArrayField, HStoreField, JSONField, MissingType, RangeField
+from ..converter import (
+    convert_django_field,
+    convert_django_field_with_choices,
+    generate_enum_name,
+)
 from ..registry import Registry
 from ..types import DjangoObjectType
 from .models import Article, Film, FilmDetails, Reporter
-
 
 # from graphene.core.types.custom_scalars import DateTime, Time, JSONString
 
 
 def assert_conversion(django_field, graphene_field, *args, **kwargs):
-    field = django_field(help_text="Custom Help Text", null=True, *args, **kwargs)
+    _kwargs = kwargs.copy()
+    if "null" not in kwargs:
+        _kwargs["null"] = True
+    field = django_field(help_text="Custom Help Text", *args, **_kwargs)
     graphene_type = convert_django_field(field)
     assert isinstance(graphene_type, graphene_field)
     field = graphene_type.Field()
     assert field.description == "Custom Help Text"
-    nonnull_field = django_field(null=False, *args, **kwargs)
+
+    _kwargs = kwargs.copy()
+    if "null" not in kwargs:
+        _kwargs["null"] = False
+    nonnull_field = django_field(*args, **_kwargs)
     if not nonnull_field.null:
         nonnull_graphene_type = convert_django_field(nonnull_field)
         nonnull_field = nonnull_graphene_type.Field()
@@ -120,7 +133,12 @@ def test_should_integer_convert_int():
 
 
 def test_should_boolean_convert_boolean():
-    field = assert_conversion(models.BooleanField, graphene.NonNull)
+    assert_conversion(models.BooleanField, graphene.Boolean, null=True)
+
+
+def test_should_boolean_convert_non_null_boolean():
+    field = assert_conversion(models.BooleanField, graphene.Boolean, null=False)
+    assert isinstance(field.type, graphene.NonNull)
     assert field.type.of_type == graphene.Boolean
 
 
@@ -196,6 +214,23 @@ def test_field_with_choices_collision():
     convert_django_field_with_choices(field)
 
 
+def test_field_with_choices_convert_enum_false():
+    field = models.CharField(
+        help_text="Language", choices=(("es", "Spanish"), ("en", "English"))
+    )
+
+    class TranslatedModel(models.Model):
+        language = field
+
+        class Meta:
+            app_label = "test"
+
+    graphene_type = convert_django_field_with_choices(
+        field, convert_choices_to_enum=False
+    )
+    assert isinstance(graphene_type, graphene.String)
+
+
 def test_should_float_convert_float():
     assert_conversion(models.FloatField, graphene.Float)
 
@@ -217,8 +252,12 @@ def test_should_manytomany_convert_connectionorlist_list():
     assert isinstance(graphene_field, graphene.Dynamic)
     dynamic_field = graphene_field.get_type()
     assert isinstance(dynamic_field, graphene.Field)
-    assert isinstance(dynamic_field.type, graphene.List)
-    assert dynamic_field.type.of_type == A
+    # A NonNull List of NonNull A ([A!]!)
+    # https://github.com/graphql-python/graphene-django/issues/448
+    assert isinstance(dynamic_field.type, NonNull)
+    assert isinstance(dynamic_field.type.of_type, graphene.List)
+    assert isinstance(dynamic_field.type.of_type.of_type, NonNull)
+    assert dynamic_field.type.of_type.of_type.of_type == A
 
 
 def test_should_manytomany_convert_connectionorlist_connection():
@@ -233,7 +272,7 @@ def test_should_manytomany_convert_connectionorlist_connection():
     assert isinstance(graphene_field, graphene.Dynamic)
     dynamic_field = graphene_field.get_type()
     assert isinstance(dynamic_field, ConnectionField)
-    assert dynamic_field.type == A._meta.connection
+    assert dynamic_field.type.of_type == A._meta.connection
 
 
 def test_should_manytoone_convert_connectionorlist():
@@ -241,13 +280,15 @@ def test_should_manytoone_convert_connectionorlist():
         class Meta:
             model = Article
 
-    graphene_field = convert_django_field(Reporter.articles.rel, 
-                                          A._meta.registry)
+    graphene_field = convert_django_field(Reporter.articles.rel, A._meta.registry)
     assert isinstance(graphene_field, graphene.Dynamic)
     dynamic_field = graphene_field.get_type()
     assert isinstance(dynamic_field, graphene.Field)
-    assert isinstance(dynamic_field.type, graphene.List)
-    assert dynamic_field.type.of_type == A
+    # a NonNull List of NonNull A ([A!]!)
+    assert isinstance(dynamic_field.type, NonNull)
+    assert isinstance(dynamic_field.type.of_type, graphene.List)
+    assert isinstance(dynamic_field.type.of_type.of_type, NonNull)
+    assert dynamic_field.type.of_type.of_type.of_type == A
 
 
 def test_should_onetoone_reverse_convert_model():
@@ -255,8 +296,7 @@ def test_should_onetoone_reverse_convert_model():
         class Meta:
             model = FilmDetails
 
-    graphene_field = convert_django_field(Film.details.related,
-                                          A._meta.registry)
+    graphene_field = convert_django_field(Film.details.related, A._meta.registry)
     assert isinstance(graphene_field, graphene.Dynamic)
     dynamic_field = graphene_field.get_type()
     assert isinstance(dynamic_field, graphene.Field)
@@ -270,6 +310,14 @@ def test_should_postgres_array_convert_list():
     )
     assert isinstance(field.type, graphene.NonNull)
     assert isinstance(field.type.of_type, graphene.List)
+    assert isinstance(field.type.of_type.of_type, graphene.NonNull)
+    assert field.type.of_type.of_type.of_type == graphene.String
+
+    field = assert_conversion(
+        ArrayField, graphene.List, models.CharField(max_length=100, null=True)
+    )
+    assert isinstance(field.type, graphene.NonNull)
+    assert isinstance(field.type.of_type, graphene.List)
     assert field.type.of_type.of_type == graphene.String
 
 
@@ -277,6 +325,17 @@ def test_should_postgres_array_convert_list():
 def test_should_postgres_array_multiple_convert_list():
     field = assert_conversion(
         ArrayField, graphene.List, ArrayField(models.CharField(max_length=100))
+    )
+    assert isinstance(field.type, graphene.NonNull)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert isinstance(field.type.of_type.of_type, graphene.List)
+    assert isinstance(field.type.of_type.of_type.of_type, graphene.NonNull)
+    assert field.type.of_type.of_type.of_type.of_type == graphene.String
+
+    field = assert_conversion(
+        ArrayField,
+        graphene.List,
+        ArrayField(models.CharField(max_length=100, null=True)),
     )
     assert isinstance(field.type, graphene.NonNull)
     assert isinstance(field.type.of_type, graphene.List)
@@ -301,4 +360,25 @@ def test_should_postgres_range_convert_list():
     field = assert_conversion(IntegerRangeField, graphene.List)
     assert isinstance(field.type, graphene.NonNull)
     assert isinstance(field.type.of_type, graphene.List)
-    assert field.type.of_type.of_type == graphene.Int
+    assert isinstance(field.type.of_type.of_type, graphene.NonNull)
+    assert field.type.of_type.of_type.of_type == graphene.Int
+
+
+def test_generate_enum_name(graphene_settings):
+    MockDjangoModelMeta = namedtuple("DjangoMeta", ["app_label", "object_name"])
+    graphene_settings.DJANGO_CHOICE_FIELD_ENUM_V3_NAMING = True
+
+    # Simple case
+    field = graphene.Field(graphene.String, name="type")
+    model_meta = MockDjangoModelMeta(app_label="users", object_name="User")
+    assert generate_enum_name(model_meta, field) == "UsersUserTypeChoices"
+
+    # More complicated multiple work case
+    field = graphene.Field(graphene.String, name="fizz_buzz")
+    model_meta = MockDjangoModelMeta(
+        app_label="some_long_app_name", object_name="SomeObject"
+    )
+    assert (
+        generate_enum_name(model_meta, field)
+        == "SomeLongAppNameSomeObjectFizzBuzzChoices"
+    )

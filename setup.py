@@ -24,6 +24,14 @@ tests_require = [
     "pytest-django>=3.3.2",
 ] + rest_framework_require
 
+
+dev_requires = [
+    "black==19.10b0",
+    "flake8==3.7.9",
+    "flake8-black==0.1.1",
+    "flake8-bugbear==20.1.4",
+] + tests_require
+
 setup(
     name="graphene-django",
     version=version,
@@ -40,25 +48,34 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: PyPy",
+        "Framework :: Django",
+        "Framework :: Django :: 1.11",
+        "Framework :: Django :: 2.2",
+        "Framework :: Django :: 3.0",
     ],
     keywords="api graphql protocol rest relay graphene",
     packages=find_packages(exclude=["tests"]),
     install_requires=[
         "six>=1.10.0",
-        "graphene>=2.1.3,<3",
+        "graphene>=2.1.7,<3",
         "graphql-core>=2.1.0,<3",
         "Django>=1.11",
         "singledispatch>=3.4.0.3",
         "promise>=2.1",
+        "unidecode>=1.1.1,<2",
     ],
     setup_requires=["pytest-runner"],
     tests_require=tests_require,
     rest_framework_require=rest_framework_require,
-    extras_require={"test": tests_require, "rest_framework": rest_framework_require},
+    extras_require={
+        "test": tests_require,
+        "rest_framework": rest_framework_require,
+        "dev": dev_requires,
+    },
     include_package_data=True,
     zip_safe=False,
     platforms="any",

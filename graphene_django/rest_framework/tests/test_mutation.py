@@ -1,13 +1,13 @@
 import datetime
 
-from graphene import Field, ResolveInfo
-from graphene.types.inputobjecttype import InputObjectType
 from py.test import raises
-from py.test import mark
 from rest_framework import serializers
 
+from graphene import Field, ResolveInfo
+from graphene.types.inputobjecttype import InputObjectType
+
 from ...types import DjangoObjectType
-from ..models import MyFakeModel
+from ..models import MyFakeModel, MyFakeModelWithDate, MyFakeModelWithPassword
 from ..mutation import SerializerMutation
 
 
@@ -30,6 +30,18 @@ class MyModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = MyFakeModel
         fields = "__all__"
+
+
+class MyModelSerializerWithMethod(serializers.ModelSerializer):
+    days_since_last_edit = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MyFakeModelWithDate
+        fields = "__all__"
+
+    def get_days_since_last_edit(self, obj):
+        now = datetime.date(2020, 1, 8)
+        return (now - obj.last_edited).days
 
 
 class MyModelMutation(SerializerMutation):
@@ -86,6 +98,67 @@ def test_exclude_fields():
     assert "created" not in MyMutation.Input._meta.fields
 
 
+def test_write_only_field():
+    class WriteOnlyFieldModelSerializer(serializers.ModelSerializer):
+        password = serializers.CharField(write_only=True)
+
+        class Meta:
+            model = MyFakeModelWithPassword
+            fields = ["cool_name", "password"]
+
+    class MyMutation(SerializerMutation):
+        class Meta:
+            serializer_class = WriteOnlyFieldModelSerializer
+
+    result = MyMutation.mutate_and_get_payload(
+        None, mock_info(), **{"cool_name": "New Narf", "password": "admin"}
+    )
+
+    assert hasattr(result, "cool_name")
+    assert not hasattr(
+        result, "password"
+    ), "'password' is write_only field and shouldn't be visible"
+
+
+def test_write_only_field_using_extra_kwargs():
+    class WriteOnlyFieldModelSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = MyFakeModelWithPassword
+            fields = ["cool_name", "password"]
+            extra_kwargs = {"password": {"write_only": True}}
+
+    class MyMutation(SerializerMutation):
+        class Meta:
+            serializer_class = WriteOnlyFieldModelSerializer
+
+    result = MyMutation.mutate_and_get_payload(
+        None, mock_info(), **{"cool_name": "New Narf", "password": "admin"}
+    )
+
+    assert hasattr(result, "cool_name")
+    assert not hasattr(
+        result, "password"
+    ), "'password' is write_only field and shouldn't be visible"
+
+
+def test_read_only_fields():
+    class ReadOnlyFieldModelSerializer(serializers.ModelSerializer):
+        cool_name = serializers.CharField(read_only=True)
+
+        class Meta:
+            model = MyFakeModelWithPassword
+            fields = ["cool_name", "password"]
+
+    class MyMutation(SerializerMutation):
+        class Meta:
+            serializer_class = ReadOnlyFieldModelSerializer
+
+    assert "password" in MyMutation.Input._meta.fields
+    assert (
+        "cool_name" not in MyMutation.Input._meta.fields
+    ), "'cool_name' is read_only field and shouldn't be on arguments"
+
+
 def test_nested_model():
     class MyFakeModelGrapheneType(DjangoObjectType):
         class Meta:
@@ -117,7 +190,6 @@ def test_mutate_and_get_payload_success():
     assert result.errors is None
 
 
-@mark.django_db
 def test_model_add_mutate_and_get_payload_success():
     result = MyModelMutation.mutate_and_get_payload(
         None, mock_info(), **{"cool_name": "Narf"}
@@ -127,7 +199,6 @@ def test_model_add_mutate_and_get_payload_success():
     assert isinstance(result.created, datetime.datetime)
 
 
-@mark.django_db
 def test_model_update_mutate_and_get_payload_success():
     instance = MyFakeModel.objects.create(cool_name="Narf")
     result = MyModelMutation.mutate_and_get_payload(
@@ -137,7 +208,15 @@ def test_model_update_mutate_and_get_payload_success():
     assert result.cool_name == "New Narf"
 
 
-@mark.django_db
+def test_model_partial_update_mutate_and_get_payload_success():
+    instance = MyFakeModel.objects.create(cool_name="Narf")
+    result = MyModelMutation.mutate_and_get_payload(
+        None, mock_info(), **{"id": instance.id}
+    )
+    assert result.errors is None
+    assert result.cool_name == "Narf"
+
+
 def test_model_invalid_update_mutate_and_get_payload_success():
     class InvalidModelMutation(SerializerMutation):
         class Meta:
@@ -150,6 +229,22 @@ def test_model_invalid_update_mutate_and_get_payload_success():
         )
 
     assert '"id" required' in str(exc.value)
+
+
+def test_perform_mutate_success():
+    class MyMethodMutation(SerializerMutation):
+        class Meta:
+            serializer_class = MyModelSerializerWithMethod
+
+    result = MyMethodMutation.mutate_and_get_payload(
+        None,
+        mock_info(),
+        **{"cool_name": "Narf", "last_edited": datetime.date(2020, 1, 4)}
+    )
+
+    assert result.errors is None
+    assert result.cool_name == "Narf"
+    assert result.days_since_last_edit == 4
 
 
 def test_mutate_and_get_payload_error():
@@ -166,6 +261,12 @@ def test_model_mutate_and_get_payload_error():
     # missing required fields
     result = MyModelMutation.mutate_and_get_payload(None, mock_info(), **{})
     assert len(result.errors) > 0
+
+
+def test_mutation_error_camelcased(graphene_settings):
+    graphene_settings.CAMELCASE_ERRORS = True
+    result = MyModelMutation.mutate_and_get_payload(None, mock_info(), **{})
+    assert result.errors[0].field == "coolName"
 
 
 def test_invalid_serializer_operations():
