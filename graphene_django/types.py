@@ -148,7 +148,6 @@ class DjangoObjectType(ObjectType):
         cls,
         model=None,
         permission_class=None,
-        filterset_class=None,
         order_fields=None,
         registry=None,
         skip_registry=False,
