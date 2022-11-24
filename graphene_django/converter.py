@@ -36,7 +36,12 @@ except ImportError:
 from graphql.pyutils import register_description
 
 from .compat import ArrayField, HStoreField, JSONField, PGJSONField, RangeField
-from .fields import DjangoListField, DjangoConnectionField
+from graphene.utils.str_converters import to_camel_case
+from graphql import assert_valid_name
+from .filter import DjangoFilterField
+from .filter.fields import DjangoInnerListField
+
+from .compat import ArrayField, HStoreField, JSONField, RangeField
 from .settings import graphene_settings
 from .utils.str_converters import to_const
 
@@ -276,31 +281,12 @@ def convert_field_to_list_or_connection(field, registry=None):
         if not _type:
             return
 
-        if isinstance(field, models.ManyToManyField):
-            description = get_django_field_description(field)
-        else:
-            description = get_django_field_description(field.field)
+        # if _type.django_filter_field:
+        #     return _type.django_filter_field
 
-        # If there is a connection, we should transform the field
-        # into a DjangoConnectionField
-        if _type._meta.connection:
-            # Use a DjangoFilterConnectionField if there are
-            # defined filter_fields or a filterset_class in the
-            # DjangoObjectType Meta
-            if _type._meta.filter_fields or _type._meta.filterset_class:
-                from .filter.fields import DjangoFilterConnectionField
-
-                return DjangoFilterConnectionField(
-                    _type, required=True, description=description
-                )
-
-            return DjangoConnectionField(_type, required=True, description=description)
-
-        return DjangoListField(
-            _type,
-            required=True,  # A Set is always returned, never None.
-            description=description,
-        )
+        # return DjangoListField(_type)
+        return DjangoInnerListField(_type, inner_field=field)
+        
 
     return Dynamic(dynamic_type)
 
