@@ -105,6 +105,16 @@ class SerializerMutation(ClientIDMutation):
             lookup_field=lookup_field,
         )
 
+        if options.get('bulk', False):
+            ObjectOutput = type(
+                cls.__name__ + 'BulkObjectOutput',
+                (graphene.types.ObjectType,),
+                output_fields
+            )
+            output_fields = {
+                'objects': graphene.List(ObjectOutput)
+            }
+
         if not _meta:
             _meta = SerializerMutationOptions(cls)
         _meta.lookup_field = lookup_field
@@ -114,6 +124,15 @@ class SerializerMutation(ClientIDMutation):
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
 
         input_fields = yank_fields_from_attrs(input_fields, _as=InputField)
+
+        if options.get('bulk', False):
+            ObjectInput = type(
+                cls.__name__ + 'BulkObjectInput',
+                (graphene.types.InputObjectType,),
+                input_fields
+            )
+            input_fields = {'objects': graphene.List(ObjectInput)}
+
         super().__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
