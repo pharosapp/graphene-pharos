@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
 import graphene
+from graphene.utils.str_converters import to_camel_case
 from graphene.relay.mutation import ClientIDMutation
 from graphene.types import Field, InputField
 from graphene.types.mutation import MutationOptions
@@ -105,14 +106,11 @@ class SerializerMutation(ClientIDMutation):
             lookup_field=lookup_field,
         )
 
+        class_name = cls.__name__[0].capitalize() + to_camel_case(cls.__name__)[1:]
+
         if options.get('bulk', False):
-            ObjectOutput = type(
-                cls.__name__ + 'BulkObjectOutput',
-                (graphene.types.ObjectType,),
-                output_fields
-            )
             output_fields = {
-                'objects': graphene.List(ObjectOutput)
+                'objects': graphene.List(cls.object._type)
             }
 
         if not _meta:
@@ -127,7 +125,7 @@ class SerializerMutation(ClientIDMutation):
 
         if options.get('bulk', False):
             ObjectInput = type(
-                cls.__name__ + 'BulkObjectInput',
+                class_name + 'BulkObjectInput',
                 (graphene.types.InputObjectType,),
                 input_fields
             )
