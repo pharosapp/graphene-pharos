@@ -110,7 +110,7 @@ class SerializerMutation(ClientIDMutation):
 
         if options.get('bulk', False):
             output_fields = {
-                'objects': graphene.List(cls.object._type)
+                'objects': graphene.NonNull(graphene.List(graphene.NonNull(cls.object._type)))
             }
 
         if not _meta:
@@ -129,7 +129,7 @@ class SerializerMutation(ClientIDMutation):
                 (graphene.types.InputObjectType,),
                 input_fields
             )
-            input_fields = {'objects': graphene.List(ObjectInput)}
+            input_fields = {'objects': graphene.NonNull(graphene.List(graphene.NonNull(ObjectInput)))}
 
         super().__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
