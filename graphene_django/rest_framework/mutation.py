@@ -110,7 +110,7 @@ class SerializerMutation(ClientIDMutation):
 
         if options.get('bulk', False):
             output_fields = {
-                'objects': graphene.NonNull(graphene.List(graphene.NonNull(cls.object._type)))
+                'objects': graphene.List(graphene.NonNull(cls.object._type))
             }
 
         if not _meta:
@@ -142,10 +142,10 @@ class SerializerMutation(ClientIDMutation):
 
         if model_class:
             if "update" in cls._meta.model_operations and lookup_field in input:
-                instance = get_object_or_404(
-                    model_class, **{lookup_field: input[lookup_field]}
-                )
-                partial = True
+                instance = model_class.objects.filter(
+                    **{lookup_field: input[lookup_field]}
+                ).first()
+                partial = bool(instance)
             elif "create" in cls._meta.model_operations:
                 instance = None
                 partial = False
