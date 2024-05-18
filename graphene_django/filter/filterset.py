@@ -1,10 +1,29 @@
 import itertools
 
 from django.db import models
-from django_filters.filterset import BaseFilterSet, FilterSet
+from django_filters.filterset import BaseFilterSet, FilterSet, Filter, ModelMultipleChoiceFilter
 from django_filters.filterset import FILTER_FOR_DBFIELD_DEFAULTS
 
-from .filters import GlobalIDFilter, GlobalIDMultipleChoiceFilter
+# from .filters import GlobalIDFilter, GlobalIDMultipleChoiceFilter
+from graphql_relay.node.node import from_global_id
+
+from ..forms import GlobalIDFormField, GlobalIDMultipleChoiceField
+
+
+class GlobalIDFilter(Filter):
+    field_class = GlobalIDFormField
+
+    def filter(self, qs, value):
+        """ Convert the filter value to a primary key before filtering """
+        return super(GlobalIDFilter, self).filter(qs, value)
+
+
+class GlobalIDMultipleChoiceFilter(ModelMultipleChoiceFilter):
+    field_class = GlobalIDMultipleChoiceField
+
+    def filter(self, qs, value):
+        gids = value # [from_global_id(v)[1] for v in value] don't use relay's id conversion
+        return super(GlobalIDMultipleChoiceFilter, self).filter(qs, gids)
 
 
 GRAPHENE_FILTER_SET_OVERRIDES = {

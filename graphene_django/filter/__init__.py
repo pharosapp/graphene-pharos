@@ -17,6 +17,7 @@ else:
         RangeFilter,
         TypedFilter,
     )
+    from .filterset import GlobalIDFilter, GlobalIDMultipleChoiceFilter
 
     __all__ = [
         "DjangoFilterConnectionField",
