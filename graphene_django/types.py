@@ -6,6 +6,7 @@ from django.db.models import Model  # noqa: F401
 
 import graphene
 from graphene.relay import Connection, Node
+from .nodes import DjangoNode
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 
@@ -134,6 +135,8 @@ class DjangoObjectType(ObjectType):
     def __init_subclass_with_meta__(
         cls,
         model=None,
+        permission_class=None,
+        order_fields=None,
         registry=None,
         skip_registry=False,
         only_fields=None,  # deprecated in favour of `fields`
@@ -150,6 +153,8 @@ class DjangoObjectType(ObjectType):
         _meta=None,
         **options,
     ):
+        if not permission_class:
+            raise Exception('No "permission_class" suppied for %s', model)
         assert is_valid_django_model(model), (
             'You need to pass a valid Django Model in {}.Meta, received "{}".'
         ).format(cls.__name__, model)
@@ -223,27 +228,10 @@ class DjangoObjectType(ObjectType):
             _as=graphene.Field,
         )
 
-        if use_connection is None and interfaces:
-            use_connection = any(
-                issubclass(interface, Node) for interface in interfaces
-            )
-
-        if use_connection and not connection:
-            # We create the connection automatically
-            if not connection_class:
-                connection_class = Connection
-
-            connection = connection_class.create_type(
-                "{}Connection".format(options.get("name") or cls.__name__), node=cls
-            )
-
-        if connection is not None:
-            assert issubclass(
-                connection, Connection
-            ), f"The connection must be a Connection. Received {connection.__name__}"
-
         if not _meta:
             _meta = DjangoObjectTypeOptions(cls)
+
+        
 
         _meta.model = model
         _meta.registry = registry
@@ -252,6 +240,11 @@ class DjangoObjectType(ObjectType):
         _meta.fields = django_fields
         _meta.connection = connection
         _meta.convert_choices_to_enum = convert_choices_to_enum
+        _meta.filterset_class = filterset_class
+        _meta.order_fields = order_fields if order_fields else ['id']
+
+        interfaces = (DjangoNode, )
+        _meta.permission_class = permission_class
 
         super().__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options

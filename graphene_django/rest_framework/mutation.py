@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
 import graphene
+from graphene.utils.str_converters import to_camel_case
 from graphene.relay.mutation import ClientIDMutation
 from graphene.types import Field, InputField
 from graphene.types.mutation import MutationOptions
@@ -116,6 +117,13 @@ class SerializerMutation(ClientIDMutation):
             lookup_field=lookup_field,
         )
 
+        class_name = cls.__name__[0].capitalize() + to_camel_case(cls.__name__)[1:]
+
+        if options.get('bulk', False):
+            output_fields = {
+                'objects': graphene.List(graphene.NonNull(cls.object._type))
+            }
+
         if not _meta:
             _meta = SerializerMutationOptions(cls)
         _meta.lookup_field = lookup_field
@@ -125,6 +133,15 @@ class SerializerMutation(ClientIDMutation):
         _meta.fields = yank_fields_from_attrs(output_fields, _as=Field)
 
         input_fields = yank_fields_from_attrs(input_fields, _as=InputField)
+
+        if options.get('bulk', False):
+            ObjectInput = type(
+                class_name + 'BulkObjectInput',
+                (graphene.types.InputObjectType,),
+                input_fields
+            )
+            input_fields = {'objects': graphene.NonNull(graphene.List(graphene.NonNull(ObjectInput)))}
+
         super().__init_subclass_with_meta__(
             _meta=_meta, input_fields=input_fields, **options
         )
@@ -138,10 +155,10 @@ class SerializerMutation(ClientIDMutation):
                 if isinstance(maybe_enum, Enum):
                     input[input_dict_key] = maybe_enum.value
             if "update" in cls._meta.model_operations and lookup_field in input:
-                instance = get_object_or_404(
-                    model_class, **{lookup_field: input[lookup_field]}
-                )
-                partial = True
+                instance = model_class.objects.filter(
+                    **{lookup_field: input[lookup_field]}
+                ).first()
+                partial = bool(instance)
             elif "create" in cls._meta.model_operations:
                 instance = None
                 partial = False

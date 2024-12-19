@@ -5,9 +5,28 @@ from django_filters.filterset import (
     FILTER_FOR_DBFIELD_DEFAULTS,
     BaseFilterSet,
     FilterSet,
+    Filter,
+    ModelMultipleChoiceFilter
 )
 
-from .filters import GlobalIDFilter, GlobalIDMultipleChoiceFilter
+
+from ..forms import GlobalIDFormField, GlobalIDMultipleChoiceField
+
+
+class GlobalIDFilter(Filter):
+    field_class = GlobalIDFormField
+
+    def filter(self, qs, value):
+        """ Convert the filter value to a primary key before filtering """
+        return super(GlobalIDFilter, self).filter(qs, value)
+
+
+class GlobalIDMultipleChoiceFilter(ModelMultipleChoiceFilter):
+    field_class = GlobalIDMultipleChoiceField
+
+    def filter(self, qs, value):
+        gids = value # [from_global_id(v)[1] for v in value] don't use relay's id conversion
+        return super(GlobalIDMultipleChoiceFilter, self).filter(qs, gids)
 
 GRAPHENE_FILTER_SET_OVERRIDES = {
     models.AutoField: {"filter_class": GlobalIDFilter},

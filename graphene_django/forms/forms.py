@@ -13,17 +13,6 @@ class GlobalIDFormField(Field):
         if not value and not self.required:
             return None
 
-        try:
-            _type, _id = from_global_id(value)
-        except (TypeError, ValueError, UnicodeDecodeError, binascii.Error):
-            raise ValidationError(self.error_messages["invalid"])
-
-        try:
-            CharField().clean(_id)
-            CharField().clean(_type)
-        except ValidationError:
-            raise ValidationError(self.error_messages["invalid"])
-
         return value
 
 

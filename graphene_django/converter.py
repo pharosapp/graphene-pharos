@@ -153,7 +153,7 @@ def convert_django_field_with_choices(
         )
     if choices and convert_choices_to_enum:
         EnumCls = convert_choice_field_to_enum(field)
-        required = not (field.blank or field.null)
+        required = not field.null
 
         converted = EnumCls(
             description=get_django_field_description(field), required=required
